@@ -5,12 +5,14 @@ import com.cluvy.auth.response.ApiResponse;
 import com.cluvy.auth.service.AuthService;
 import com.cluvy.auth.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
+@Slf4j
 public class AuthController {
 
     private final AuthService authService;
@@ -48,7 +50,7 @@ public class AuthController {
     }
 
     /**
-     * 소셜 로그인
+     * 소셜 로그인 (현재는 사용하지 않지만 남겨둠)
      */
     @PostMapping("/login/kakao")
     public ApiResponse<SocialLoginResponse> socialLogin(@RequestBody SocialLoginRequest request) {
@@ -57,12 +59,24 @@ public class AuthController {
     }
 
     /**
-     * 카카오 인가 코드 콜백 (카카오 로그인 테스트용)
+     * 카카오 인가 코드를 받고, 카카오 API를 호출해 엑세스 토큰을 받은 후 소셜 로그인
+     *
+     * @param code 인가 코드
+     * @return jwt와 refresh token을 포함한 SocialLoginResponse
      */
     @GetMapping("/oauth")
-    public String kakaoCallback(@RequestParam String code) {
-        // 실제 서비스에서는 code로 카카오 토큰 발급 요청 등 추가 처리 필요
-        return "인가 코드: " + code;
+    public ApiResponse<SocialLoginResponse> kakaoCallback(@RequestParam String code) throws Exception {
+        // kauth로 액세스 토큰 요청
+        log.info("인가 코드: {}", code);
+        String accessToken = authService.getAccessTokenFromKakao(code);
+
+        // kapi로 카카오 로그인
+        log.info("액세스 토큰: " + accessToken);
+        SocialLoginResponse loginResponse = authService.socialLogin(new SocialLoginRequest("kakao", accessToken));
+
+        // jwt 포함 응답
+        log.info("로그인 응답: {}", loginResponse);
+        return ApiResponse.onSuccess(loginResponse);
     }
 
     /**
