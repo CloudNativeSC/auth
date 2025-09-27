@@ -1,12 +1,10 @@
 package com.cluvy.auth.service;
 
-import com.cluvy.auth.client.KakaoFeignClient;
 import com.cluvy.auth.client.UserFeignClient;
 import com.cluvy.auth.dto.*;
 import com.cluvy.auth.exception.GeneralException;
 import com.cluvy.auth.response.status.ErrorStatus;
 import com.cluvy.auth.util.JwtUtil;
-import jakarta.security.auth.message.AuthException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -14,7 +12,6 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -105,6 +102,17 @@ public class AuthServiceImpl implements AuthService {
         userFeignClient.updateLastLoginAt("Bearer " + accessToken);
 
         return new SocialLoginResponse(accessToken, refreshToken, isNewUser);
+    }
+
+    /**
+     * 카카오 API로부터 액세스 토큰 가져오기
+     * 
+     * @param code 인가 코드
+     * @return 카카오 API로부터 받은 액세스 토큰
+     */
+    @Override
+    public String getAccessTokenFromKakao(String code) {
+        return kakaoAuthService.getKakaoAccessToken(code);
     }
 
 }

@@ -13,4 +13,6 @@ public interface AuthService {
     boolean validateToken(String accessToken);
     // 소셜 로그인
     SocialLoginResponse socialLogin(SocialLoginRequest request);
+    // 카카오 API로부터 액세스 토큰 가져오기
+    String getAccessTokenFromKakao(String code);
 }
