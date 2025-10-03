@@ -15,6 +15,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -57,74 +59,43 @@ public class AuthController {
     }
 
     /**
-     * 소셜 로그인 (현재는 사용하지 않지만 남겨둠)
-     */
-    @PostMapping("/login/kakao")
-    public ApiResponse<SocialLoginResponse> socialLogin(@RequestBody SocialLoginRequest request) {
-        SocialLoginResponse response = authService.socialLogin(request);
-        return ApiResponse.onSuccess(response);
-    }
-
-    /**
-     * 카카오 소셜 로그인 콜백 엔드포인트
+     * 카카오 소셜 로그인 엔드포인트
      *
-     * 1. 카카오로부터 전달받은 인가 코드를 확인
-     * 2. 인가 코드를 사용해 카카오 API에서 액세스 토큰 발급
-     * 3. 액세스 토큰으로 소셜 로그인 처리 후 JWT 생성
-     * 4. JWT를 쿠키에 담아 브라우저에 저장
-     * 5. 브라우저를 프론트엔드 페이지로 리다이렉트
+     * 1. 요청 바디에서 카카오 인가 코드를 확인
+     * 2. 인가 코드를 사용해 카카오 API로부터 액세스 토큰 발급
+     * 3. 발급받은 액세스 토큰으로 소셜 로그인 처리 후 JWT 생성
+     * 4. access token은 응답 body에, refresh token은 HttpOnly 쿠키에 저장
+     * 5. 브라우저에서 쿠키를 통해 로그인 상태 유지
      *
      * 주의:
-     * - 프론트엔드에서는 JSON body가 아니라 쿠키를 통해 로그인 상태를 확인
-     * - 개발 환경에서는 Secure=false, 배포 시 HTTPS에서는 true로 설정 필요
+     * - 프론트엔드는 응답 body 대신 쿠키(refresh_token)로 로그인 상태를 확인
+     * - 개발 환경에서는 secure=false, 배포 환경(HTTPS)에서는 secure=true로 설정 필요
      *
-     * @param code 카카오에서 전달받은 인가 코드
-     * @return 302 Redirect 응답 + JWT 쿠키
+     * @param request 카카오 인가 코드가 포함된 SocialLoginRequest
+     * @return JWT 포함 body와 refresh token 쿠키를 담은 ResponseEntity
      */
-    @GetMapping("/oauth")
-    public ResponseEntity<?> kakaoCallback(@RequestParam String code) throws Exception {
-
-        // 1. 인가 코드 확인
+    @PostMapping("/login/kakao")
+    public ResponseEntity<ApiResponse<SocialLoginResponse>> socialLogin(@RequestBody SocialLoginRequest request) {
+        String code = request.getAccessToken(); // 액세스 토큰이라 작성했지만 사실 이건 인가 코드
         log.info("인가 코드: {}", code);
 
-        // 2. 카카오로 액세스 토큰 요청
         String accessToken = authService.getAccessTokenFromKakao(code);
         log.info("액세스 토큰: {}", accessToken);
 
-        // 3. 카카오 로그인 처리
-        SocialLoginResponse loginResponse = authService.socialLogin(
-                new SocialLoginRequest("kakao", accessToken));
-        log.info("로그인 응답: {}", loginResponse);
+        SocialLoginResponse response = authService.socialLogin(new SocialLoginRequest("kakao", accessToken));
+        log.info("login res: {}", response);
 
-        // 4. 쿠키 생성 (HttpOnly, Secure, SameSite)
-        // Access Token 쿠키
-        ResponseCookie accessCookie = ResponseCookie.from("access_token", loginResponse.getAccessToken())
+        ResponseCookie refreshCookie = ResponseCookie.from("refresh_token", response.getRefreshToken())
                 .httpOnly(true)
-                .secure(false) // HTTPS 환경에서는 true
+                .secure(false)
                 .path("/")
-                .maxAge(60 * 60) // 1시간
+                .maxAge(60 * 60 * 24 * 7)
                 .sameSite("Lax")
                 .build();
 
-        // Refresh Token 쿠키
-        ResponseCookie refreshCookie = ResponseCookie.from("refresh_token", loginResponse.getRefreshToken())
-                .httpOnly(true)
-                .secure(false) // HTTPS 환경에서는 true
-                .path("/")
-                .maxAge(60 * 60 * 24 * 7)  // 7일
-                .sameSite("Lax")
-                .build();
-
-        // 헤더에 두 쿠키 모두 추가
-        HttpHeaders headers = new HttpHeaders();
-        headers.add(HttpHeaders.SET_COOKIE, accessCookie.toString());
-        headers.add(HttpHeaders.SET_COOKIE, refreshCookie.toString());
-        headers.add(HttpHeaders.LOCATION, "http://localhost:3000/"); // 프론트 주소
-
-        // 5. 302 Redirect 응답 반환
-        return ResponseEntity.status(HttpStatus.FOUND)
-                .headers(headers)
-                .build();
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
+                .body(ApiResponse.onSuccess(response));
     }
 
     /**
