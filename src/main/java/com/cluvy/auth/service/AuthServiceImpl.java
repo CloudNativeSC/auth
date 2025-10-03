@@ -90,15 +90,37 @@ public class AuthServiceImpl implements AuthService {
     }
 
     /**
-     * 소셜 로그인 처리
+     * 카카오 로그인 처리
+     *
+     * 1. 액세스 토큰을 받아서 카카오 API로 사용자 정보 요청
+     * 2. user 서비스로 사용자 정보를 보내 사용자 조회 또는 등록
+     * 3. 사용자 아이디로 토큰 생성
+     * 4. refresh token을 DB에 저장
+     * 5. 토큰과 신규 가입 유저인지 판단하는 데이터 반환
+     *
+     * @param request 카카오 API로부터 받은 인가 코드를 포함한 SocialLoginRequest
+     * @return 토큰과 신규 유저 확인 데이터를 포함한 SocialLoginResponse
      */
     @Override
     public SocialLoginResponse socialLogin(SocialLoginRequest request) {
         SocialUserInfo userInfo = kakaoAuthService.getKakaoUserInfo(request.getAccessToken());
         boolean isNewUser = userFeignClient.registerOrFindSocialUser(userInfo);
+
         String accessToken = jwtUtil.generateAccessToken(userInfo.getId());
         String refreshToken = jwtUtil.generateRefreshToken(userInfo.getId());
+        String tokenHash = jwtUtil.hashToken(refreshToken);
+        LocalDateTime expiresAt = LocalDateTime.ofInstant(
+                Instant.now().plusMillis(jwtUtil.getRefreshExpiration()),
+                ZoneId.systemDefault()
+        );
 
+        refreshTokenService.saveRefreshToken(
+                Long.valueOf(userInfo.getId()),
+                tokenHash,
+                null,
+                null,
+                expiresAt
+        );
         userFeignClient.updateLastLoginAt("Bearer " + accessToken);
 
         return new SocialLoginResponse(accessToken, refreshToken, isNewUser);

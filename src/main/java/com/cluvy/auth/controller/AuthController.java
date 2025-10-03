@@ -121,7 +121,7 @@ public class AuthController {
         headers.add(HttpHeaders.SET_COOKIE, refreshCookie.toString());
         headers.add(HttpHeaders.LOCATION, "http://localhost:3000/"); // 프론트 주소
 
-        // 6. 302 Redirect 응답 반환
+        // 5. 302 Redirect 응답 반환
         return ResponseEntity.status(HttpStatus.FOUND)
                 .headers(headers)
                 .build();
