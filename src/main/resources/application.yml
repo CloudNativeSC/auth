@@ -32,3 +32,7 @@ jwt:
 kakao:
   client-id: ${REST_API_KEY}
   redirect-uri: ${REDIRECTION_URI}
+
+user:
+  host: ${USER_HOST:localhost} # 로컬에서 실행할 시 localhost, 도커에서 실행할 시 user
+  port: ${CONTAINER_PORT:8081} # 로컬에서 실행할 시 8081, 도커에서 실행할 시 8080
