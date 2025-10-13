@@ -6,7 +6,7 @@ import com.cluvy.auth.dto.UserVerifyResponse;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.*;
 
-@FeignClient(name = "user", url = "http://localhost:8081") // 임시 포트
+@FeignClient(name = "user", url = "http://${user.host}:${user.port}") // 임시 포트
 public interface UserFeignClient {
     /**
      * 사용자 정보 검증/조회 (로그인, 인증 등)
